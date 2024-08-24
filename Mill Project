@@ -1,0 +1,263 @@
+import React, { useRef, useState, useEffect } from 'react';
+import { jsPDF } from 'jspdf';
+import './App.css';
+
+function WeightCalculationForm() {
+  const [ownerName, setOwnerName] = useState('');
+  const [brokerName, setBrokerName] = useState('');
+  const [vehicleNumber, setVehicleNumber] = useState('');
+  const [grossWeight, setGrossWeight] = useState('');
+  const [tareWeight, setTareWeight] = useState('');
+  const [mudPercent, setMudPercent] = useState('');
+  const [mudWeight, setMudWeight] = useState('');
+  const [pointRate1, setPointRate1] = useState('');
+  const [pointRate2, setPointRate2] = useState('');
+  const [pointRate3, setPointRate3] = useState('');
+  const [finalPointRate, setFinalPointRate] = useState('');
+  const [marketPrice, setMarketPrice] = useState('');
+  const [ratePerTonne, setRatePerTonne] = useState('');
+  const [netWeightAfterMud, setNetWeightAfterMud] = useState('');
+  const [rate, setRate] = useState('');
+  const [unloadingCost, setUnloadingCost] = useState('');
+  const [finalValue, setFinalValue] = useState('');
+
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  const formRef = useRef();
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const netWeight = grossWeight && tareWeight ? grossWeight - tareWeight : 0;
+
+  useEffect(() => {
+    if (netWeight && mudPercent) {
+      let calculatedMudWeight = (netWeight * mudPercent) / 100;
+
+      // Round up to the nearest 5 (always rounding up)
+      const remainder = calculatedMudWeight % 5;
+      if (remainder !== 0) {
+        calculatedMudWeight += (5 - remainder); // Always round up
+      }
+
+      setMudWeight(Math.round(calculatedMudWeight));
+    } else {
+      setMudWeight(0);
+    }
+  }, [netWeight, mudPercent]);
+
+  useEffect(() => {
+    const calculatedNetWeightAfterMud = netWeight - mudWeight;
+    setNetWeightAfterMud(calculatedNetWeightAfterMud > 0 ? calculatedNetWeightAfterMud : 0);
+  }, [netWeight, mudWeight]);
+
+  useEffect(() => {
+    if (pointRate1 && pointRate2 && pointRate3) {
+      const averagePointRate = (
+        (parseFloat(pointRate1) + parseFloat(pointRate2) + parseFloat(pointRate3)) / 3
+      ).toFixed(2);
+      setFinalPointRate(averagePointRate);
+    } else {
+      setFinalPointRate('');
+    }
+  }, [pointRate1, pointRate2, pointRate3]);
+
+  useEffect(() => {
+    if (finalPointRate && marketPrice) {
+      const calculatedRatePerTonne = (finalPointRate * marketPrice).toFixed(2);
+      setRatePerTonne(calculatedRatePerTonne);
+    } else {
+      setRatePerTonne('');
+    }
+  }, [finalPointRate, marketPrice]);
+
+  useEffect(() => {
+    if (netWeightAfterMud && ratePerTonne) {
+      const rawRate = netWeightAfterMud * ratePerTonne;
+      const formattedRate = Math.floor(rawRate / 1000);
+      setRate(formattedRate);
+    } else {
+      setRate('');
+    }
+  }, [netWeightAfterMud, ratePerTonne]);
+
+  useEffect(() => {
+    if (netWeight) {
+      let calculatedUnloadingCost = netWeight * 30;
+      calculatedUnloadingCost = Math.floor(calculatedUnloadingCost / 1000);
+      
+      // Adjust unloading cost so that its last digit matches the last digit of the rate
+      while (calculatedUnloadingCost % 10 !== rate % 10) {
+        calculatedUnloadingCost++;
+      }
+      setUnloadingCost(calculatedUnloadingCost);
+    } else {
+      setUnloadingCost('');
+    }
+  }, [netWeight, rate]);
+
+  const calculateFinalValue = () => {
+    const calculatedFinalValue = rate - unloadingCost;
+    setFinalValue(calculatedFinalValue);
+  };
+
+  const handleDownloadPDF = () => {
+    const doc = new jsPDF();
+
+    doc.setFontSize(18);
+    doc.text('Selliamman Sago Factory', 20, 20);
+    doc.setFontSize(12);
+    doc.text('123 Main Road, Salem, Tamil Nadu, India', 20, 30);
+
+    doc.text(`Date: ${currentTime.toLocaleDateString()}`, 160, 20);
+    doc.text(`Time: ${currentTime.toLocaleTimeString()}`, 160, 30);
+
+    doc.setFontSize(14);
+    doc.text('Weight Calculation Details', 20, 50);
+
+    doc.setFontSize(12);
+    doc.text(`Owner Name: ${ownerName}`, 20, 60);
+    doc.text(`Broker Name: ${brokerName}`, 20, 70);
+    doc.text(`Vehicle Number: ${vehicleNumber}`, 20, 80);
+    doc.text(`Gross Weight: ${grossWeight} Kg`, 20, 90);
+    doc.text(`Tare Weight: ${tareWeight} Kg`, 20, 100);
+    doc.text(`Net Weight: ${netWeight} Kg`, 20, 110);
+    doc.text(`Mud Percentage: ${mudPercent}%`, 20, 120);
+    doc.text(`Mud Weight: ${mudWeight} Kg`, 20, 130);
+    doc.text(`Net Weight after Mud Reduction: ${netWeightAfterMud} Kg`, 20, 140);
+    doc.text(`Point Rate 1: ${pointRate1}`, 20, 150);
+    doc.text(`Point Rate 2: ${pointRate2}`, 20, 160);
+    doc.text(`Point Rate 3: ${pointRate3}`, 20, 170);
+    doc.text(`Final Point Rate: ${finalPointRate}`, 20, 180);
+    doc.text(`Market Price: ${marketPrice}`, 20, 190);
+    doc.text(`Rate per Tonne: ${ratePerTonne}`, 20, 200);
+    doc.text(`Rate: ${rate}`, 20, 210);
+    doc.text(`Unloading Cost: ${unloadingCost}`, 20, 220);
+    doc.text(`Final Value: ${finalValue}`, 20, 230);
+
+    doc.save('Weight-Calculation-Receipt.pdf');
+  };
+
+  return (
+    <div className="new-ui-wrapper">
+      <div className="new-ui-container" ref={formRef}>
+        <div className="new-ui-header">
+          <div className="header-title">
+            <h2>Sago Factory</h2>
+            <p className="factory-address">123 Main Road, Salem, Tamil Nadu, India</p>
+          </div>
+          <div className="header-date">
+            <span>{currentTime.toLocaleDateString()}</span>
+            <span>{currentTime.toLocaleTimeString()}</span>
+          </div>
+        </div>
+
+        <div className="form-grid">
+          {/* Owner and Broker Details */}
+          <div className="form-group">
+            <label>Owner Name</label>
+            <input type="text" value={ownerName} onChange={(e) => setOwnerName(e.target.value)} />
+          </div>
+
+          <div className="form-group">
+            <label>Broker Name</label>
+            <input type="text" value={brokerName} onChange={(e) => setBrokerName(e.target.value)} />
+          </div>
+
+          {/* Weight and Rate Details */}
+          <div className="form-group">
+            <label>Vehicle Number</label>
+            <input type="text" value={vehicleNumber} onChange={(e) => setVehicleNumber(e.target.value)} />
+          </div>
+
+          <div className="form-group">
+            <label>Gross Weight (Kg)</label>
+            <input type="number" value={grossWeight} onChange={(e) => setGrossWeight(e.target.value)} />
+          </div>
+
+          <div className="form-group">
+            <label>Tare Weight (Kg)</label>
+            <input type="number" value={tareWeight} onChange={(e) => setTareWeight(e.target.value)} />
+          </div>
+
+          <div className="form-group">
+            <label>Net Weight (Kg)</label>
+            <input type="number" value={netWeight} readOnly />
+          </div>
+
+          <div className="form-group">
+            <label>Mud Percentage (%)</label>
+            <input type="number" value={mudPercent} onChange={(e) => setMudPercent(e.target.value)} />
+          </div>
+
+          <div className="form-group">
+            <label>Mud Weight (Kg)</label>
+            <input type="number" value={mudWeight} readOnly />
+          </div>
+
+          <div className="form-group">
+            <label>Net Weight after Mud Reduction (Kg)</label>
+            <input type="number" value={netWeightAfterMud} readOnly />
+          </div>
+
+          <div className="form-group">
+            <label>Point 1</label>
+            <input type="number" value={pointRate1} onChange={(e) => setPointRate1(e.target.value)} />
+          </div>
+
+          <div className="form-group">
+            <label>Point 2</label>
+            <input type="number" value={pointRate2} onChange={(e) => setPointRate2(e.target.value)} />
+          </div>
+
+          <div className="form-group">
+            <label>Point 3</label>
+            <input type="number" value={pointRate3} onChange={(e) => setPointRate3(e.target.value)} />
+          </div>
+
+          <div className="form-group">
+            <label>Final Point Rate</label>
+            <input type="number" value={finalPointRate} readOnly />
+          </div>
+
+          <div className="form-group">
+            <label>Market Price</label>
+            <input type="number" value={marketPrice} onChange={(e) => setMarketPrice(e.target.value)} />
+          </div>
+
+          <div className="form-group">
+            <label>Rate per Tonne</label>
+            <input type="number" value={ratePerTonne} readOnly />
+          </div>
+
+          <div className="form-group">
+            <label>Rate</label>
+            <input type="number" value={rate} readOnly />
+          </div>
+
+          <div className="form-group">
+            <label>Unloading Cost</label>
+            <input type="number" value={unloadingCost} readOnly />
+          </div>
+
+          <div className="form-group">
+            <label>Final Value</label>
+            <input type="number" value={finalValue} readOnly />
+          </div>
+
+          <button className="calculate-button" onClick={calculateFinalValue}>
+            Calculate Final Value
+          </button>
+        </div>
+
+        <button className="download-button" onClick={handleDownloadPDF}>
+          Download PDF
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export default WeightCalculationForm;
